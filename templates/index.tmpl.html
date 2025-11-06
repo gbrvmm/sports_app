@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>[[ .Title ]]</title>
+  <style>
+    html, body { 
+      margin:0; 
+      padding:0; 
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+      min-height: 100vh;
+    }
+    header { 
+      padding: 24px 32px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      border-bottom: 2px solid #fbcfe8;
+      box-shadow: 0 4px 6px rgba(236, 72, 153, 0.1);
+    }
+    header strong {
+      font-size: 24px;
+      background: linear-gradient(135deg, #ec4899, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    main { 
+      padding: 32px 16px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .row { 
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(236, 72, 153, 0.1);
+      backdrop-filter: blur(10px);
+      margin-bottom: 16px;
+    }
+    label { 
+      font-size: 13px;
+      color: #272727;
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    input, select, button {
+      padding: 10px 14px;
+      border: 2px solid #fbcfe8;
+      border-radius: 10px;
+      font-size: 14px;
+      background: white;
+      transition: all 0.3s ease;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #ec4899;
+      box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
+    }
+    button { 
+      cursor: pointer;
+      background: linear-gradient(135deg, #ec4899, #f472b6);
+      color: white;
+      border: none;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(236, 72, 153, 0.3);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    table { 
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(236, 72, 153, 0.1);
+    }
+    th, td { 
+      padding: 16px;
+      text-align: left;
+      border-bottom: 1px solid #fce7f3;
+    }
+    th { 
+      background: linear-gradient(135deg, #fce7f3, #fbcfe8);
+      font-weight: 600;
+      color: #272727;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+    tbody tr {
+      transition: all 0.2s ease;
+    }
+    tbody tr:hover {
+      background: #fdf2f8;
+      transform: scale(1.01);
+    }
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .meta { 
+      color: #272727;
+      font-size: 14px;
+      margin-top: 8px;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 12px 20px;
+      border-radius: 12px;
+      display: inline-block;
+    }
+    .pagination {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .pagination span {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-weight: 600;
+      color: #272727;
+    }
+  </style>
+  <script>
+    window.APP_CONFIG = { apiBase: "[[ .APIBase ]]" };
+  </script>
+</head>
+<body>
+  <header>
+    <strong>Поиск игроков спортивных команд</strong>
+  </header>
+  <main>
+    <div id="root"></div>
+  </main>
+
+  <script type="module">
+    import React, { useState, useEffect, useMemo, useRef } from "https://esm.sh/react@18";
+    import { createRoot } from "https://esm.sh/react-dom@18/client";
+
+    function useDebouncedValue(value, delay) {
+      const [v, setV] = useState(value);
+      useEffect(() => {
+        const id = setTimeout(() => setV(value), delay);
+        return () => clearTimeout(id);
+      }, [value, delay]);
+      return v;
+    }
+
+    function App() {
+      const [field, setField]   = useState('name');
+      const [q, setQ]           = useState('');
+      const [hmin, setHmin]     = useState('');
+      const [hmax, setHmax]     = useState('');
+      const [wmin, setWmin]     = useState('');
+      const [wmax, setWmax]     = useState('');
+      const [page, setPage]     = useState(1);
+      const [limit, setLimit]   = useState(10);
+
+      const dq = useDebouncedValue(q, 350);
+      const [items, setItems] = useState([]);
+      const [meta, setMeta]   = useState({ page:1, limit:10, count:0 });
+      const [loading, setLoading] = useState(false);
+      const abortRef = useRef(null);
+
+      const apiBase = ((window.APP_CONFIG && window.APP_CONFIG.apiBase) || '') + '/api/players';
+
+      const params = useMemo(() => {
+        const u = new URLSearchParams();
+        u.set('field', field);
+        if ((dq || '').trim()) u.set('q', (dq || '').trim());
+        if (hmin !== '') u.set('height_min', hmin);
+        if (hmax !== '') u.set('height_max', hmax);
+        if (wmin !== '') u.set('weight_min', wmin);
+        if (wmax !== '') u.set('weight_max', wmax);
+        u.set('page', String(page));
+        u.set('limit', String(limit));
+        return u.toString();
+      }, [field, dq, hmin, hmax, wmin, wmax, page, limit]);
+
+      async function fetchData(signal) {
+        setLoading(true);
+        try {
+          const res = await fetch(apiBase + '?' + params, { signal });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          setItems(Array.isArray(data.items) ? data.items : []);
+          const newMeta = data.meta || { page, limit, count: 0 };
+          setMeta({
+            page: Number(newMeta.page) || page,
+            limit: Number(newMeta.limit) || limit,
+            count: Number(newMeta.count) || 0
+          });
+        } catch (e) {
+          if (e.name !== 'AbortError') {
+            console.error(e);
+            setItems([]);
+            setMeta({ page: 1, limit, count: 0 });
+          }
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      useEffect(() => {
+        if (abortRef.current) abortRef.current.abort();
+        const ctrl = new AbortController();
+        abortRef.current = ctrl;
+        fetchData(ctrl.signal);
+        return () => ctrl.abort();
+      }, [params]);
+
+      const pages = Math.max(1, Math.ceil((meta.count || 0) / (meta.limit || limit || 10)));
+
+      return React.createElement('div', {},
+        React.createElement('div', { className: 'row' },
+          React.createElement('div', {},
+            React.createElement('label', {}, 'Поле поиска'),
+            React.createElement('select', {
+              value: field,
+              onChange: function(e){ setPage(1); setField(e.target.value); }
+            },
+              React.createElement('option', { value: 'name' }, 'ФИО'),
+              React.createElement('option', { value: 'city' }, 'Родной город'),
+              React.createElement('option', { value: 'team' }, 'Команда')
+            )
+          ),
+          React.createElement('div', { style: { flex: '1 1 280px' } },
+            React.createElement('label', {}, 'Часть содержимого'),
+            React.createElement('input', {
+              placeholder: 'например: Иванов / Москва / Титаны',
+              value: q,
+              onChange: function(e){ setPage(1); setQ(e.target.value); }
+            })
+          ),
+          React.createElement('div', {},
+            React.createElement('label', {}, 'Рост от, см'),
+            React.createElement('input', {
+              type: 'number', min:150, max:230, value: hmin,
+              onChange: function(e){ setPage(1); setHmin(e.target.value); }
+            })
+          ),
+          React.createElement('div', {},
+            React.createElement('label', {}, 'Рост до, см'),
+            React.createElement('input', {
+              type: 'number', min:150, max:230, value: hmax,
+              onChange: function(e){ setPage(1); setHmax(e.target.value); }
+            })
+          ),
+          React.createElement('div', {},
+            React.createElement('label', {}, 'Вес от, кг'),
+            React.createElement('input', {
+              type: 'number', min:50, max:150, value: wmin,
+              onChange: function(e){ setPage(1); setWmin(e.target.value); }
+            })
+          ),
+          React.createElement('div', {},
+            React.createElement('label', {}, 'Вес до, кг'),
+            React.createElement('input', {
+              type: 'number', min:50, max:150, value: wmax,
+              onChange: function(e){ setPage(1); setWmax(e.target.value); }
+            })
+          ),
+          React.createElement('div', {},
+            React.createElement('label', {}, 'На странице'),
+            React.createElement('input', {
+              type: 'number', min:1, max:100, value: limit,
+              onChange: function(e){ setLimit(Number(e.target.value) || 10); }
+            })
+          ),
+          React.createElement('div', {},
+            React.createElement('button', {
+              onClick: function(){ setPage(1); setQ(q); }
+            }, loading ? 'Загрузка...' : 'Найти')
+          )
+        ),
+        React.createElement('div', { className: 'meta' },
+          loading ? 'Загрузка...' : ('Найдено: ' + (meta.count || 0) + '. Стр. ' + (meta.page || 1) + ' из ' + pages + '.')
+        ),
+        React.createElement('table', {},
+          React.createElement('thead', {},
+            React.createElement('tr', {},
+              React.createElement('th', {}, 'ФИО'),
+              React.createElement('th', {}, 'Город'),
+              React.createElement('th', {}, 'Команда'),
+              React.createElement('th', {}, 'Вид спорта'),
+              React.createElement('th', {}, 'Рост, см'),
+              React.createElement('th', {}, 'Вес, кг')
+            )
+          ),
+          React.createElement('tbody', {},
+            (items.length === 0)
+              ? React.createElement('tr', {}, React.createElement('td', { colSpan: 6, style: { textAlign: 'center', color: '#9f1239', padding: '32px' } }, 'Нет результатов'))
+              : items.map(function(p){
+                  return React.createElement('tr', { key: p.id },
+                    React.createElement('td', {}, p.full_name),
+                    React.createElement('td', {}, p.hometown),
+                    React.createElement('td', {}, p.team || '-'),
+                    React.createElement('td', {}, p.sport || '-'),
+                    React.createElement('td', {}, String(p.height_cm)),
+                    React.createElement('td', {}, String(p.weight_kg))
+                  );
+                })
+          )
+        ),
+        React.createElement('div', { className: 'pagination' },
+          React.createElement('button', {
+            disabled: page <= 1,
+            onClick: function(){ setPage(function(p){ return Math.max(1, p - 1); }); }
+          }, '← Назад'),
+          React.createElement('span', {}, 'Страница ' + page + ' из ' + pages),
+          React.createElement('button', {
+            disabled: page >= pages,
+            onClick: function(){ setPage(function(p){ return Math.min(pages, p + 1); }); }
+          }, 'Вперёд →')
+        )
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
