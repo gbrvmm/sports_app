@@ -9,7 +9,7 @@
 ![Made with Love](https://img.shields.io/badge/Made%20with-❤️-red) 
 
 
-![Демонстрация работы](https://media.giphy.com/media/YOUR_GIF_ID/giphy.gif)
+![Демонстрация работы](demo.gif)
 
 
 ---
