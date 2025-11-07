@@ -1,7 +1,5 @@
 # ⚽ Поиск игроков спортивных команд
 
-> Полнофункциональное веб-приложение для поиска и фильтрации игроков спортивных команд
-
 ![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-336791?style=flat&logo=postgresql)
 ![React](https://img.shields.io/badge/React-18+-61DAFB?style=flat&logo=react)
